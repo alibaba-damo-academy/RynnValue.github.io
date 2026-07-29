@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RynnValue Real-World RL Results</title>
+    <style>
+      :root {
+        --paper: #ffffff;
+        --ink: #15131a;
+        --muted: #6d6878;
+        --grid: #dedbe5;
+        --rynn: #5a43d6;
+        --rynn-dark: #33229d;
+        --robometer: #e67850;
+        --sparse: #9193a2;
+        --sft: #2c9b91;
+        --average: #f2efff;
+        --section-border: #bdb9c7;
+        --tick: #777281;
+        --group-label: #312d39;
+        --average-border: #c7bff2;
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --paper: #15121d;
+        --ink: #f4f1fa;
+        --muted: #aaa3b8;
+        --grid: #393242;
+        --rynn: #9b87ff;
+        --rynn-dark: #c9bfff;
+        --robometer: #ef8a66;
+        --sparse: #999aa7;
+        --sft: #4ab5aa;
+        --average: #241e38;
+        --section-border: #4a4256;
+        --tick: #aaa3b8;
+        --group-label: #ded8e8;
+        --average-border: #62568b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--paper);
+      }
+
+      body {
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      .viewport {
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--paper);
+      }
+
+      .scene {
+        position: relative;
+        width: min(100vw, calc(100vh * 16 / 9));
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        padding: 4.8% 5.2% 4.2%;
+        background: var(--paper);
+      }
+
+      .scene::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        background: var(--paper);
+        pointer-events: none;
+        animation: scene-in 0.42s ease-out 0.05s forwards;
+      }
+
+      .top-rule,
+      .bottom-rule {
+        position: absolute;
+        left: 3.2%;
+        width: 93.6%;
+        height: 2px;
+        background: var(--rynn);
+        transform: scaleX(0);
+        animation: rule-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      .top-rule {
+        top: 3.2%;
+        transform-origin: left;
+        animation-delay: 0.18s;
+      }
+
+      .bottom-rule {
+        bottom: 3.2%;
+        transform-origin: right;
+        animation-delay: 0.34s;
+      }
+
+      header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 3rem;
+        height: 12%;
+        opacity: 0;
+        transform: translateY(-10px);
+        animation: settle 0.55s ease-out 0.45s forwards;
+      }
+
+      .heading {
+        display: flex;
+        align-items: baseline;
+        gap: 1.2rem;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(25px, 2.35vw, 48px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .metric {
+        color: var(--rynn-dark);
+        font-size: clamp(11px, 0.85vw, 17px);
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.65rem 1.2rem;
+        max-width: 43%;
+        padding-top: 0.1rem;
+        font-size: clamp(10px, 0.75vw, 15px);
+        font-weight: 700;
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        white-space: nowrap;
+      }
+
+      .swatch {
+        width: 0.72em;
+        height: 0.72em;
+        background: var(--color);
+      }
+
+      .charts {
+        height: 88%;
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 2.7%;
+      }
+
+      .chart-section {
+        position: relative;
+        display: grid;
+        grid-template-columns: 8.5% 91.5%;
+        min-height: 0;
+      }
+
+      .chart-section + .chart-section {
+        border-top: 1px solid var(--section-border);
+        padding-top: 1.35%;
+      }
+
+      .section-label {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-right: 18%;
+        opacity: 0;
+        transform: translateX(-14px);
+        animation: slide-right 0.5s ease-out var(--section-delay) forwards;
+      }
+
+      .section-label strong {
+        font-size: clamp(18px, 1.45vw, 30px);
+        line-height: 1.02;
+      }
+
+      .section-label span {
+        margin-top: 0.45rem;
+        color: var(--muted);
+        font-size: clamp(9px, 0.65vw, 13px);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .plot {
+        position: relative;
+        min-height: 0;
+        border-bottom: 2px solid var(--ink);
+      }
+
+      .grid-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: var(--line-position);
+        height: 1px;
+        background: var(--grid);
+        transform: scaleX(0);
+        transform-origin: left;
+        animation: rule-in 0.62s ease-out var(--section-delay) forwards;
+      }
+
+      .grid-line span {
+        position: absolute;
+        top: -0.62em;
+        left: -2.8em;
+        width: 2.2em;
+        color: var(--tick);
+        font-size: clamp(8px, 0.55vw, 11px);
+        font-weight: 700;
+        text-align: right;
+      }
+
+      .groups {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .group {
+        position: relative;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 17%;
+        padding: 0 8%;
+      }
+
+      .group.average {
+        background: var(--average);
+      }
+
+      .bars {
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: clamp(4px, 0.38vw, 8px);
+        min-height: 0;
+      }
+
+      .bar-column {
+        position: relative;
+        width: min(17%, 34px);
+        height: 84%;
+        display: flex;
+        align-items: flex-end;
+      }
+
+      .bar {
+        position: relative;
+        width: 100%;
+        min-height: 2px;
+        background: var(--color);
+        transform: scaleY(0);
+        transform-origin: bottom;
+        animation: grow 0.95s cubic-bezier(0.18, 0.78, 0.22, 1) var(--delay) forwards;
+      }
+
+      .bar.rynn {
+        background: var(--rynn);
+      }
+
+      .bar.rynn::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border: 2px solid var(--rynn-dark);
+        opacity: 0;
+        animation: border-in 0.35s ease-out calc(var(--delay) + 0.78s) forwards;
+      }
+
+      .value {
+        position: absolute;
+        left: 50%;
+        color: var(--ink);
+        font-size: clamp(8px, 0.62vw, 13px);
+        font-weight: 800;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translate(-50%, 7px);
+        animation: value-in 0.32s ease-out calc(var(--delay) + 0.72s) forwards;
+      }
+
+      .bar-column[data-zero="true"] .value {
+        bottom: 5px;
+      }
+
+      .group-label {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 0.35rem;
+        color: var(--group-label);
+        font-size: clamp(8px, 0.68vw, 14px);
+        font-weight: 750;
+        line-height: 1.16;
+        text-align: center;
+        opacity: 0;
+        animation: fade-in 0.4s ease-out calc(var(--section-delay) + 0.25s) forwards;
+      }
+
+      .average .group-label {
+        color: var(--rynn-dark);
+        font-weight: 850;
+      }
+
+      .average::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-left: 1px solid var(--average-border);
+        border-right: 1px solid var(--average-border);
+        opacity: 0;
+        animation: border-in 0.4s ease-out 4.65s forwards;
+      }
+
+      .footnote {
+        position: absolute;
+        right: 5.2%;
+        bottom: 1.1%;
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(8px, 0.55vw, 11px);
+        font-weight: 650;
+        opacity: 0;
+        animation: fade-in 0.4s ease-out 4.9s forwards;
+      }
+
+      @keyframes scene-in {
+        to {
+          opacity: 0;
+        }
+      }
+
+      @keyframes rule-in {
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      @keyframes settle {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slide-right {
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes grow {
+        to {
+          transform: scaleY(1);
+        }
+      }
+
+      @keyframes value-in {
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+      }
+
+      @keyframes fade-in {
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes border-in {
+        to {
+          opacity: 1;
+        }
+      }
+
+      body.final *,
+      body.final *::before,
+      body.final *::after {
+        animation-delay: 0s !important;
+        animation-duration: 0.001s !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="viewport" id="viewport"></main>
+
+    <script>
+      const tasks = [
+        "Bread Basket<br>Placement",
+        "Steak Serving<br>with a Spatula",
+        "Box-in-Drawer<br>Placement",
+        "Bimanual Box<br>Transfer",
+        "Average",
+      ];
+
+      const methods = {
+        rynn: { name: "RynnValue", color: "var(--rynn)" },
+        robometer: { name: "Robometer", color: "var(--robometer)" },
+        sparse: { name: "Sparse", color: "var(--sparse)" },
+        sft: { name: "SFT", color: "var(--sft)" },
+      };
+
+      const sections = [
+        {
+          title: "Online RL",
+          subtitle: "OOD TASKS",
+          delay: 0.85,
+          series: [
+            { key: "rynn", values: [45, 75, 70, 100, 72.5] },
+            { key: "robometer", values: [35, 45, 65, 65, 52.5] },
+            { key: "sparse", values: [40, 45, 40, 70, 48.8] },
+          ],
+        },
+        {
+          title: "Offline RL",
+          subtitle: "REAL ROBOT",
+          delay: 2.35,
+          series: [
+            { key: "rynn", values: [100, 90, 90, 50, 82.5] },
+            { key: "robometer", values: [80, 80, 50, 45, 63.8] },
+            { key: "sparse", values: [70, 20, 0, 0, 22.5] },
+            { key: "sft", values: [70, 25, 0, 0, 23.8] },
+          ],
+        },
+      ];
+
+      function legendHTML() {
+        return Object.entries(methods)
+          .map(
+            ([key, method]) => `
+              <span class="legend-item">
+                <span class="swatch" style="--color:${method.color}"></span>
+                ${method.name}
+              </span>
+            `,
+          )
+          .join("");
+      }
+
+      function sectionHTML(section, sectionIndex) {
+        const groups = tasks
+          .map((task, taskIndex) => {
+            const bars = section.series
+              .map((series, methodIndex) => {
+                const value = series.values[taskIndex];
+                const delay =
+                  section.delay + taskIndex * 0.13 + methodIndex * 0.07;
+                const method = methods[series.key];
+                return `
+                  <div class="bar-column" data-zero="${value === 0}">
+                    <span
+                      class="value"
+                      data-value="${value}"
+                      style="bottom:calc(${value}% + 5px);--delay:${delay}s"
+                    >0</span>
+                    <span
+                      class="bar ${series.key === "rynn" ? "rynn" : ""}"
+                      title="${method.name}: ${value}%"
+                      style="height:${value}%;--delay:${delay}s;--color:${method.color}"
+                    ></span>
+                  </div>
+                `;
+              })
+              .join("");
+
+            return `
+              <div class="group ${task === "Average" ? "average" : ""}">
+                <div class="bars">${bars}</div>
+                <div class="group-label">${task}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        return `
+          <section
+            class="chart-section"
+            style="--section-delay:${section.delay - 0.25}s"
+            aria-label="${section.title} success rates"
+          >
+            <div class="section-label">
+              <strong>${section.title.replace(" ", "<br>")}</strong>
+              <span>${section.subtitle}</span>
+            </div>
+            <div class="plot">
+              ${[25, 50, 75, 100]
+                .map(
+                  (tick) => `
+                    <div class="grid-line" style="--line-position:${tick * 0.84}%">
+                      <span>${tick}</span>
+                    </div>
+                  `,
+                )
+                .join("")}
+              <div class="groups">${groups}</div>
+            </div>
+          </section>
+        `;
+      }
+
+      function sceneHTML() {
+        return `
+          <section class="scene">
+            <div class="top-rule"></div>
+            <div class="bottom-rule"></div>
+            <header>
+              <div class="heading">
+                <h1>Real-World Reinforcement Learning</h1>
+                <span class="metric">SUCCESS RATE (%) ↑</span>
+              </div>
+              <div class="legend">${legendHTML()}</div>
+            </header>
+            <div class="charts">
+              ${sections.map(sectionHTML).join("")}
+            </div>
+            <p class="footnote">Higher is better. Average is computed over four real-robot tasks.</p>
+          </section>
+        `;
+      }
+
+      function animateValues() {
+        const showFinal = document.body.classList.contains("final");
+        document.querySelectorAll(".value").forEach((label) => {
+          const target = Number(label.dataset.value);
+          if (showFinal) {
+            label.textContent = target % 1 === 0 ? `${target}%` : `${target.toFixed(1)}%`;
+            return;
+          }
+          const delay = Number(label.style.getPropertyValue("--delay").replace("s", ""));
+          const duration = 900;
+
+          window.setTimeout(() => {
+            const start = performance.now();
+
+            function update(now) {
+              const progress = Math.min((now - start) / duration, 1);
+              const eased = 1 - Math.pow(1 - progress, 3);
+              const current = target * eased;
+              label.textContent =
+                target % 1 === 0 ? `${Math.round(current)}%` : `${current.toFixed(1)}%`;
+              if (progress < 1) requestAnimationFrame(update);
+            }
+
+            requestAnimationFrame(update);
+          }, delay * 1000);
+        });
+      }
+
+      function replay() {
+        const viewport = document.getElementById("viewport");
+        viewport.innerHTML = sceneHTML();
+        animateValues();
+      }
+
+      if (new URLSearchParams(window.location.search).has("final")) {
+        document.body.classList.add("final");
+      }
+
+      window.addEventListener("message", (event) => {
+        if (
+          event.data?.type === "rynnvalue-theme" &&
+          ["light", "dark"].includes(event.data.theme)
+        ) {
+          document.documentElement.dataset.theme = event.data.theme;
+        }
+      });
+
+      replay();
+      document.getElementById("viewport").addEventListener("click", replay);
+      window.addEventListener("keydown", (event) => {
+        if (event.key === " " || event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          replay();
+        }
+      });
+    </script>
+  </body>
+</html>
